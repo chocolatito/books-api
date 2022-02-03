@@ -13,47 +13,46 @@ La siguiente tabla muestra la lista de nuestros _API Endpoints_.
 Necesitaremos las siguientes gemas en nuestro _Gemfile_, que puede agregar en la parte inferior:
 - `bcrypt`: un algoritmo hash sofisticado y seguro diseñado por el proyecto _OpenBSD_ para cifrar contraseñas. La gema bcrypt Ruby proporciona un envoltorio simple para manejar contraseñas de manera segura.
 - `jwt`: una implementación Ruby pura del estándar RFC 7519 OAuth JSON Web Token.
-- r`ack-cors`: proporciona soporte para Cross-Origin Resource Sharing (CORS) para aplicaciones web compatibles con Rack.
+- `rack-cors`: proporciona soporte para Cross-Origin Resource Sharing (CORS) para aplicaciones web compatibles con Rack.
 
 Instale las gemas ejecutando `bundle install`.
 
 ---
 ## Configuración de modelos y migración
-Comencemos generando nuestro modelo de usuario y actualizando nuestro modelo de libro y categoría para incluir la ID de usuario como clave externa. Esto significa que para cada libro creado, necesitaremos identificar qué usuario lo agregó.
+Comencemos generando nuestro modelo de usuario y actualizando nuestro modelo de libro para incluir la ID de usuario como clave externa. Esto significa que para cada libro creado, necesitaremos identificar qué usuario lo agregó.
 ```sh
 rails g model User username password_digest
 rails g migration update_books_table
 ```
-La gema BCrypt requiere que tengamos un atributo XXX_digest, en nuestro caso password_digest. Agregar el método `has_secure_password` en nuestro modelo de usuario establecerá y se autenticará con una contraseña de BCrypt. Su modelo de usuario ahora debería verse así:
+La gema BCrypt requiere que tengamos un atributo `XXX_digest`, en nuestro caso `password_digest`. Agregar el método `has_secure_password` en nuestro modelo de usuario establecerá y se autenticará con una contraseña de BCrypt. Su modelo de usuario ahora debería verse así:
 ```ruby
 # app/models/user.rb
 class User < ApplicationRecord
- has_secure_password
+  has_secure_password
 end
 ```
 Al archivo de migración de su usuario le debe gustar el siguiente código.
 ```ruby
 # db/migrate/[timestamp]_create_users.rb
 class CreateUsers < ActiveRecord::Migration[6.1]
- def change
-   create_table :users do |t|
-     t.string :username
-     t.string :password_digest
-     t.timestamps
-   end
- end
+  def change
+    create_table :users do |t|
+      t.string :username
+      t.string :password_digest
+      t.timestamps
+    end
+  end
 end
 ```
 Actualice el archivo de migración de libros generado *[timestamp]_update_books.rb* para que tenga este aspecto:
 ```ruby
 # db/migrate/[timestamp]_update_books.rb
 class UpdateBooksTable < ActiveRecord::Migration[6.1]
- def change
-   add_reference :books, :user, foreign_key: true
- end
+  def change
+    add_reference :books, :user, foreign_key: true
+  end
 end
 ```
-
 
 Ejecutemos las migraciones:
 ```sh
@@ -65,20 +64,20 @@ Escribamos las especificaciones del modelo para el modelo de usuario:
 # spec/models/user_spec.rb
 require 'rails_helper'
 RSpec.describe User, type: :model do
- it { should validate_presence_of(:username) }
- it { should validate_uniqueness_of(:username) }
- it {
-   should validate_length_of(:username)
-     .is_at_least(3)
- }
- it { should validate_presence_of(:password) }
- it {
-   should_not validate_length_of(:password)
-     .is_at_least(5)
- }
- describe 'Associations' do
-   it { should have_many(:books) }
- end
+  it { should validate_presence_of(:username) }
+  it { should validate_uniqueness_of(:username) }
+  it {
+    should validate_length_of(:username)
+      .is_at_least(3)
+  }
+  it { should validate_presence_of(:password) }
+  it {
+    should_not validate_length_of(:password)
+      .is_at_least(5)
+  }
+  describe 'Associations' do
+    it { should have_many(:books) }
+  end
 end
 ```
 Ahora, intente ejecutar las especificaciones ejecutando:
@@ -103,19 +102,17 @@ Ahora, podemos ejecutar las pruebas de nuevo. Deberías ver que todas las prueba
 
 Recuerda que actualizamos nuestra columna de tabla de libros. Entonces, actualicemos nuestro archivo _book_specs_ para reflejar la asociación de usuarios actualizando las pruebas de asociación.
 ```ruby
+#spec/models/book_spec.rb
 RSpec.describe Book, type: :model do
-   it { should belong_to(:category) }
-   it { should belong_to(:user) }
-   it { should validate_presence_of(:title) }
-   it { should validate_presence_of(:author) }
-   it {
-     should validate_length_of(:title)
-       .is_at_least(3)
-   }
+  # Association test
+  it { should belong_to(:category) }
+  it { should belong_to(:user) }
+  # ...
 end
 ```
-Arriba, es obvio que ejecutar las pruebas rspec spec/models/book_spec.rb resultará en una prueba fallida. Podemos arreglar esto fácilmente agregando la  asociación `belong_to` al modelo del libro.
+Arriba, es obvio que ejecutar las pruebas _rspec spec/models/book_spec.rb_ resultará en una prueba fallida. Podemos arreglar esto fácilmente agregando la  asociación `belong_to` al modelo del libro.
 ```ruby
+#app/models/book.rb
 class Book < ApplicationRecord
   belongs_to :category
   belongs_to :user
