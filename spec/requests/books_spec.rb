@@ -36,9 +36,10 @@ RSpec.describe 'Books', type: :request do
   end
   describe 'POST /books/:id' do
     let!(:history) { create(:category) }
+    let!(:user_ex) { create(:user) }
     let(:valid_attributes) do
       { title: 'Whispers of Time', author: 'Dr. Krishna Saksena',
-        category_id: history.id }
+        category_id: history.id, user_id: user_ex.id}
     end
     context 'when request attributes are valid' do
       before { post '/api/v1/books', params: valid_attributes }

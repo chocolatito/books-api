@@ -126,20 +126,20 @@ end
 
 Ya que no crearemos más modelos para este proyecto, sigamos adelante y generemos los controladores. Tanto un controlador de usuario como un controlador de autenticación se utilizarán para manejar la autenticación. Puede considerarlo como su controlador de sesiones habitual.
 ```sh
-rails g controller Users
-rails g controller Authentication
+rails g controller Users \
+  && rails g controller Authentication
 ```
 
-Siguiendo nuestro enfoque de control de versiones de API, vamos a mover los archivos de controlador generados a:
+Siguiendo nuestro enfoque de control de versiones de API, vamos a mover los archivos de controlador generados a app/controllers/api/v1:
 ```sh
-app/controllers/api/v1
 mv app/controllers/{users_controller.rb,authentication_controller.rb} app/controllers/api/v1/
 ```
 
 Antes de escribir nuestras primeras pruebas en esta parte, agreguemos el _factory_ para usuarios y actualicemos el de libros (_books_request_spec_ está fallando).
 ```sh
-rspec spec/requests/books_request_spec.rb.
+rspec spec/requests/books_request_spec.rb
 ```
+> NOTA: Dependiendo la versión de la gema `rspec-rails`, es posible los archivos del directorio _spec/requests/_, se generaron con el nombre *books_spec.rb* en lugar de *books_request_spec.rb*
 
 ```sh
 touch spec/factories/user.rb
@@ -148,81 +148,87 @@ touch spec/factories/user.rb
 ```ruby
 # spec/factories/user.rb
 FactoryBot.define do
-   factory :user do
-     username { Faker::Internet.username(specifier: 5..10) }
-     password { 'password' }
-   end
+  factory :user do
+    username { Faker::Internet.username(specifier: 5..10) }
+    password { 'password' }
+  end
 end
 ```
+
 Ahora podemos actualizar el _factory_ de libros agregando `user { create(:user) }` similar a lo que hicimos con la categoría.
 ```ruby
 # spec/factories/book.rb
 FactoryBot.define do
- factory :book do
-   title { Faker::Book.title }
-   author { Faker::Book.author }
-   category { create(:category) }
-   user { create(:user) }
- end
+  factory :book do
+    title { Faker::Book.title }
+    author { Faker::Book.author }
+    category { create(:category) }
+    user { create(:user) }
+  end
 end
 ```
+
 Ejecute `rspec spec/requests/books_request_spec.rb` nuevamente y todas las pruebas deberían pasar ahora.
+
+> NOTA: Ademas de modificar *spec/requests/books_request_spec.rb* también es necesario modificar el método `book_params` del archivo *app/controllers/api/v1/books_controller.rb* para que acepte el `user_id`.
 
 Ahora, escribamos las especificaciones para _/register_ y _/login_  API:
 ```ruby
 # spec/requests/users_request_spec.rb
 RSpec.describe 'Users', type: :request do
- describe 'POST /register' do
-   it 'authenticates the user' do
-     post '/api/v1/register', params: { user: { username: 'user1', password: 'password' } }
-     expect(response).to have_http_status(:created)
-     expect(json).to eq({
-                          'id' => User.last.id,
-                          'username' => 'user1',
-                          'token' => AuthenticationTokenService.call(User.last.id)
-                        })
-   end
- end
+  describe 'POST /register' do
+    it 'authenticates the user' do
+      post '/api/v1/register', params: { user: { username: 'user1', password: 'password' } }
+      expect(response).to have_http_status(:created)
+      expect(json).to eq({
+                           'id' => User.last.id,
+                           'username' => 'user1',
+                           'token' => AuthenticationTokenService.call(User.last.id)
+                         })
+    end
+  end
 end
 ```
 
 ```ruby
 # spec/requests/authentication_request_spec.rb
 RSpec.describe 'Authentications', type: :request do
- describe 'POST /login' do
-   let(:user) { FactoryBot.create(:user, username: 'user1', password: 'password') }
-   it 'authenticates the user' do
-     post '/api/v1/login', params: { username: user.username, password: 'password' }
-     expect(response).to have_http_status(:created)
-     expect(json).to eq({
-                          'id' => user.id,
-                          'username' => 'user1',
-                          'token' => AuthenticationTokenService.call(user.id)
-                        })
-   end
-   it 'returns error when username does not exist' do
-     post '/api/v1/login', params: { username: 'ac', password: 'password' }
-     expect(response).to have_http_status(:unauthorized)
-     expect(json).to eq({
-                          'error' => 'No such user'
-                        })
-   end
-   it 'returns error when password is incorrect' do
-     post '/api/v1/login', params: { username: user.username, password: 'incorrect' }
-     expect(response).to have_http_status(:unauthorized)
-     expect(json).to eq({
-                          'error' => 'Incorrect password '
-                        })
-   end
- end
+  describe 'POST /login' do
+    let(:user) { FactoryBot.create(:user, username: 'user1', password: 'password') }
+    it 'authenticates the user' do
+      post '/api/v1/login', params: { username: user.username, password: 'password' }
+      expect(response).to have_http_status(:created)
+      expect(json).to eq({
+                           'id' => user.id,
+                           'username' => 'user1',
+                           'token' => AuthenticationTokenService.call(user.id)
+                         })
+    end
+    it 'returns error when username does not exist' do
+      post '/api/v1/login', params: { username: 'ac', password: 'password' }
+      expect(response).to have_http_status(:unauthorized)
+      expect(json).to eq({
+                           'error' => 'No such user'
+                         })
+    end
+    it 'returns error when password is incorrect' do
+      post '/api/v1/login', params: { username: user.username, password: 'incorrect' }
+      expect(response).to have_http_status(:unauthorized)
+      expect(json).to eq({
+                           'error' => 'Incorrect password '
+                         })
+    end
+  end
 end
 ```
-Es posible que se pregunte de dónde proviene el `AuthenticationTokenService`, ya que no lo tenemos en ninguna parte de nuestra aplicación. ¡Llegaremos a eso pronto! Como su nombre lo indica, puede adivinar lo que hará: generar un token para cada usuario.
+
+Lo que hará el servicio `AuthenticationTokenService`, como su nombre lo indica, es generar un token para cada usuario.
 
 Continuando, ejecutar nuestras especificaciones `rspec spec/requests/users_request_spec.rb && rspec spec/requests/authentication_request_spec.rb` generará un  `ActionController::RoutingError`. Entonces, arreglemos eso rápidamente.
 
 Aquí necesitaremos solo dos rutas _/login_ y _/register_. Nuestro _/config/routes_ ahora debería verse así:
 ```ruby
+# config/routes
 get 'users/Authentication'
   namespace :api do
     namespace :v1 do
@@ -241,38 +247,37 @@ Envolvamos la clase `UsersController` con el módulo `API` y `V1`, luego agregue
 ```ruby
 # app/controllers/api/v1/users_controller.rb
 module Api
-   module V1
-     class UsersController < ApplicationController
-        def create
-         user = User.create(user_params)
-          if user.save
-           render json: UserRepresenter.new(user).as_json, status: :created
-         else
-           render json: { error: user.errors.full_messages.first }, status: :unprocessable_entity
-         end
-       end
-        private
-        def user_params
-         params.require(:user).permit(:username, :password)
-       end
-     end
-   end
- end
+  module V1
+    class UsersController < ApplicationController
+      def create
+        user = User.create(user_params)
+        if user.save
+          render json: UserRepresenter.new(user).as_json, status: :created
+        else
+          render json: { error: user.errors.full_messages.first }, status: :unprocessable_entity
+        end
+      end
+      private
+      def user_params
+        params.require(:user).permit(:username, :password)
+      end
+    end
+  end
+end
 ```
 
 También envolvamos la clase `AuthenticationController` con el módulo `API` y `V1`, luego agreguemos el método `#create` para la autenticación.
 ```ruby
 Rails.application.routes.draw do
- root' home#index'
- namespace :api do
-   namespace :v1 do
-     resources :users, only: :index
-     resources :favourites, only: %i[index create destroy]
-     resources :cars, only: %i[index create show destroy]
-     post 'login', to: 'authentication#create'
-     post 'register', to: 'users#create'
-   end
- end
+  namespace :api do
+    namespace :v1 do
+      resources :users, only: :index
+      resources :categories, only: %i[index create destroy]
+      resources :books
+      post 'login', to: 'authentication#create'
+      post 'register', to: 'users#create'
+    end
+  end
 end
 ```
 
@@ -312,18 +317,18 @@ Es posible que recuerde nuestro propio asistente personalizado del artículo ant
 touch app/representers/user_representer.rb
 # app/representers/user_representer.rb
 class UserRepresenter
- def initialize(user)
-   @user = user
- end
- def as_json
-   {
-     id: user.id,
-     username: user.username,
-     token: AuthenticationTokenService.call(user.id)
-   }
- end
- private
- attr_reader :user
+  def initialize(user)
+    @user = user
+  end
+  def as_json
+    {
+      id: user.id,
+      username: user.username,
+      token: AuthenticationTokenService.call(user.id)
+    }
+  end
+  private
+  attr_reader :user
 end
 ```
 
@@ -341,34 +346,34 @@ A continuación, genere la `SECRET_KEY` que se utilizará para codificar y decod
 ```ruby
 # app/services/authentication_token_service.rb
 class AuthenticationTokenService
- HMAC_SECRET = Rails.application.secrets.secret_key_base
+  HMAC_SECRET = Rails.application.secrets.secret_key_base
 end
 ```
 A continuación, tomaremos el ID de usuario y el tiempo de caducidad como `payload`.
 ```ruby
 # app/services/authentication_token_service.rb
 class AuthenticationTokenService
- HMAC_SECRET = Rails.application.secrets.secret_key_base
- ALGORITHM_TYPE = 'HS256'.freeze
- def self.call(user_id)
-   exp = 24.hours.from_now.to_i
-   payload = { user_id: user_id, exp: exp }
-   JWT.encode payload, HMAC_SECRET, ALGORITHM_TYPE
- end
- def self.decode(token)
-   JWT.decode token, HMAC_SECRET, true, { algorithm: ALGORITHM_TYPE }
- rescue JWT::ExpiredSignature, JWT::DecodeError
-   false
- end
- def self.valid_payload(payload)
-   !expired(payload)
- end
- def self.expired(payload)
-   Time.at(payload['exp']) < Time.now
- end
- def self.expired_token
-   render json: { error: 'Expired token! login again' }, status: :unauthorized
- end
+  HMAC_SECRET = Rails.application.secrets.secret_key_base
+  ALGORITHM_TYPE = 'HS256'.freeze
+  def self.call(user_id)
+    exp = 24.hours.from_now.to_i
+    payload = { user_id: user_id, exp: exp }
+    JWT.encode payload, HMAC_SECRET, ALGORITHM_TYPE
+  end
+  def self.decode(token)
+    JWT.decode token, HMAC_SECRET, true, { algorithm: ALGORITHM_TYPE }
+  rescue JWT::ExpiredSignature, JWT::DecodeError
+    false
+  end
+  def self.valid_payload(payload)
+    !expired(payload)
+  end
+  def self.expired(payload)
+    Time.at(payload['exp']) < Time.now
+  end
+  def self.expired_token
+    render json: { error: 'Expired token! login again' }, status: :unauthorized
+  end
 end
 ```
 Ahora, ejecutemos todas las pruebas nuevamente para asegurarnos de que todo esté en verde.
