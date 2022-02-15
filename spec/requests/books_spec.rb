@@ -4,8 +4,13 @@ RSpec.describe 'Books', type: :request do
   # initialize test data
   let!(:books) { create_list(:book, 10) }
   let(:book_id) { books.first.id }
+  let(:user) { FactoryBot.create(:user, username: 'acushla', password: 'password') }
   describe 'GET /books' do
-    before { get '/api/v1/books' }
+    # before { get '/api/v1/books' }
+    before do
+      get '/api/v1/books',
+          headers: { 'Authorization' => AuthenticationTokenService.call(user.id) }
+    end
     it 'returns books' do
       expect(json).not_to be_empty
       expect(json.size).to eq(10)
@@ -15,7 +20,12 @@ RSpec.describe 'Books', type: :request do
     end
   end
   describe 'GET /books/:id' do
-    before { get "/api/v1/books/#{book_id}" }
+    # before { get "/api/v1/books/#{book_id}" }
+    # before { get "/api/v1/books/#{book_id}", headers: { 'Authorization' => AuthenticationTokenService.call(user.id) } }
+    before do
+      get "/api/v1/books/#{book_id}",
+          headers: { 'Authorization' => AuthenticationTokenService.call(user.id) }
+    end
     context 'when book exists' do
       it 'returns status code 200' do
         expect(response).to have_http_status(200)
@@ -38,17 +48,30 @@ RSpec.describe 'Books', type: :request do
     let!(:history) { create(:category) }
     let!(:user_ex) { create(:user) }
     let(:valid_attributes) do
-      { title: 'Whispers of Time', author: 'Dr. Krishna Saksena',
-        category_id: history.id, user_id: user_ex.id}
+      { title: 'Whispers of Time',
+        author: 'Dr. Krishna Saksena',
+        category_id: history.id }
     end
     context 'when request attributes are valid' do
-      before { post '/api/v1/books', params: valid_attributes }
+      # before { post '/api/v1/books', params: valid_attributes }
+      # before { post '/api/v1/books', params: valid_attributes, headers: { 'Authorization' => AuthenticationTokenService.call(user.id) } }
+      before do
+        post '/api/v1/books',
+             params: valid_attributes,
+             headers: { 'Authorization' => AuthenticationTokenService.call(user.id) }
+      end
       it 'returns status code 201' do
         expect(response).to have_http_status(201)
       end
     end
     context 'when an invalid request' do
-      before { post '/api/v1/books', params: {} }
+      # before { post '/api/v1/books', params: {} }
+      # before { post '/api/v1/books', params: {}, headers: { 'Authorization' => AuthenticationTokenService.call(user.id) } }
+      before do
+        post '/api/v1/books',
+             params: {},
+             headers: { 'Authorization' => AuthenticationTokenService.call(user.id) }
+      end
       it 'returns status code 422' do
         expect(response).to have_http_status(422)
       end
@@ -59,7 +82,13 @@ RSpec.describe 'Books', type: :request do
   end
   describe 'PUT /books/:id' do
     let(:valid_attributes) { { title: 'Saffron Swords' } }
-    before { put "/api/v1/books/#{book_id}", params: valid_attributes }
+    # before { put "/api/v1/books/#{book_id}", params: valid_attributes }
+    # before { put "/api/v1/books/#{book_id}", params: valid_attributes, headers: { 'Authorization' => AuthenticationTokenService.call(user.id) } }
+    before do
+      put "/api/v1/books/#{book_id}",
+          params: valid_attributes,
+          headers: { 'Authorization' => AuthenticationTokenService.call(user.id) }
+    end
     context 'when book exists' do
       it 'returns status code 204' do
         expect(response).to have_http_status(204)
@@ -80,7 +109,12 @@ RSpec.describe 'Books', type: :request do
     end
   end
   describe 'DELETE /books/:id' do
-    before { delete "/api/v1/books/#{book_id}" }
+    # before { delete "/api/v1/books/#{book_id}" }
+    # before { delete "/api/v1/books/#{book_id}", headers: { 'Authorization' => AuthenticationTokenService.call(user.id) } }
+    before do
+      delete "/api/v1/books/#{book_id}",
+             headers: { 'Authorization' => AuthenticationTokenService.call(user.id) }
+    end
     it 'returns status code 204' do
       expect(response).to have_http_status(204)
     end
